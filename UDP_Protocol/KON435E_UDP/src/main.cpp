@@ -2,13 +2,27 @@
 #include "WiFi.h"
 #include "ESPAsyncWebServer.h"
 #include <HTTPClient.h>
+#include <DHT.h>
 
 #define CLIENT
 //#define SERVER
 
 #ifdef SERVER
 
+#define RELAY_1 25
+#define RELAY_2 26
+
+#define DHTTYPE DHT11
+#define DHTPIN 4
+DHT dht(DHTPIN,DHTTYPE);
+void readSensor();
 String getQuery();
+String getTemp();
+String getHum();
+bool tempRelay;
+bool humRelay;
+unsigned temperature;
+unsigned humidity;
 
 const char* ssid = "ESP32-Access-Point";
 const char* password = "123456789";
@@ -18,14 +32,30 @@ int counter = 0;
 #endif
 
 #ifdef CLIENT
+
+#define TEMP_LIMIT 27
+#define HUMID_LIMIT 45
+
 const char* ssid = "ESP32-Access-Point";
 const char* password = "123456789";
 
-const char* serverNameDebug = "http://192.168.4.1/debug";
+const char* serverNameTemp = "http://192.168.4.1/temp";
+const char* serverNameHumid = "http://192.168.4.1/humid";
+const char* svNameSetTemp = "http://192.168.4.1/setTemp";
+const char* svNameResetTemp = "http://192.168.4.1/ressetTemp";
+const char* svNameSetHum = "http://192.168.4.1/setHum";
+const char* svNameResetHum = "http://192.168.4.1/resetHum";
+
 unsigned long previousMillis = 0;
-const long interval = 5000;
+const long interval = 1000;
 
 String httpGETRequest(const char* serverName);
+
+String temp_str;
+String humid_str;
+
+unsigned temp;
+unsigned humid;
 
 #endif
 
@@ -36,6 +66,13 @@ void setup(){
 Serial.begin(9600);
   #ifdef SERVER
   // Serial port for debugging purposes
+  pinMode(RELAY_1,OUTPUT);
+  pinMode(RELAY_2,OUTPUT);
+
+  digitalWrite(RELAY_1,HIGH);
+  digitalWrite(RELAY_2,HIGH);
+  // Serial port for debugging purposes
+  dht.begin();
   
   Serial.println();
   
@@ -49,18 +86,36 @@ Serial.begin(9600);
   Serial.println(IP);
 
   
-  server.on("/debug", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/temp", HTTP_GET, [](AsyncWebServerRequest *request){
     counter++;
-    request->send_P(200, "text/plain", getQuery().c_str());
+    readSensor();
+    request->send_P(200, "text/plain", getTemp().c_str());
   });
-  /*
-  server.on("/humidity", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/plain", readHumi().c_str());
+  server.on("/humid", HTTP_GET, [](AsyncWebServerRequest *request){
+    counter++;
+    readSensor();
+    request->send_P(200, "text/plain", getHum().c_str());
   });
-  server.on("/pressure", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/plain", readPres().c_str());
+  server.on("/setTemp", HTTP_GET, [](AsyncWebServerRequest *request){
+    tempRelay = 1;
+    digitalWrite(RELAY_1, LOW);
+    request->send_P(200, "text/plain", getHum().c_str());
   });
-  */
+  server.on("/resetTemp", HTTP_GET, [](AsyncWebServerRequest *request){
+    tempRelay = 0;
+    digitalWrite(RELAY_1, HIGH);
+    request->send_P(200, "text/plain", getHum().c_str());
+  });
+  server.on("/setHum", HTTP_GET, [](AsyncWebServerRequest *request){
+    humRelay = 1;
+    digitalWrite(RELAY_2, LOW);
+    request->send_P(200, "text/plain", getHum().c_str());
+  });
+  server.on("/resetHum", HTTP_GET, [](AsyncWebServerRequest *request){
+    humRelay = 0;
+    digitalWrite(RELAY_2, HIGH);
+    request->send_P(200, "text/plain", getHum().c_str());
+  });
   
   bool status;
 
@@ -81,7 +136,7 @@ Serial.begin(9600);
   WiFi.begin(ssid, password);
   Serial.println("Connecting");
   while(WiFi.status() != WL_CONNECTED) { 
-    delay(500);
+    delay(200);
     Serial.print(".");
   }
   Serial.println("");
@@ -107,11 +162,38 @@ void loop(){
      // Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED ){
 
-      String variable = httpGETRequest(serverNameDebug);
-      Serial.println(variable);//
-      Serial.println("Ha bu bana gelen şeydir");
+      temp_str = httpGETRequest(serverNameTemp);
+      Serial.print("Temperature: ");
+      Serial.println(temp_str);
+
+      temp = temp_str.toInt();
+
+      if (temp >= TEMP_LIMIT){
+        httpGETRequest(svNameSetTemp);
+        Serial.println("Temp ON");
+      }
+      else {
+        httpGETRequest(svNameResetTemp);
+        Serial.println("Temp OFF");
+      }
+
+      humid_str = httpGETRequest(serverNameHumid);
+      Serial.print("Humidity: ");
+      Serial.println(humid_str);
+
+      humid = humid_str.toInt();
+
+      if (humid >= HUMID_LIMIT){
+        httpGETRequest(svNameSetHum);
+        Serial.println("Humid ON");
+      }
+      else {
+        httpGETRequest(svNameResetHum);
+        Serial.println("Humid OFF");
+      }
 
       previousMillis = currentMillis;
+
     }
     else {
       Serial.println("WiFi Disconnected");
@@ -122,8 +204,21 @@ void loop(){
 }
 
 #ifdef SERVER
+void readSensor(){
+  humidity = dht.readHumidity();
+  temperature = dht.readTemperature();
+
+}
 String getQuery(){
   return String(counter);
+}
+
+String getTemp(){
+  return String(temperature);
+}
+
+String getHum(){
+  return String(humidity);
 }
 
 #endif
@@ -143,8 +238,8 @@ String httpGETRequest(const char* serverName){
   String payload = "--"; 
   
   if (httpResponseCode>0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
+    //Serial.print("HTTP Response code: ");
+    //Serial.println(httpResponseCode);
     payload = http.getString();
   }
   else {
@@ -157,5 +252,3 @@ String httpGETRequest(const char* serverName){
   return payload;
 }
 #endif
-
-
