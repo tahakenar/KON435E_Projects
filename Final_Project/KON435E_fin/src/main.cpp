@@ -6,7 +6,7 @@
 
 
 
-#define mqtt_server "192.168.43.55"
+#define mqtt_server "192.168.1.37"
 WiFiClient espClient;
 PubSubClient client(espClient);
 #define mqttTemp "sensor/temp"
@@ -24,13 +24,15 @@ long lastMsg = 0;
 #define DHTTYPE DHT11
 #define DHTPIN 4
 
-const char* ssid = "AndroidAPBDA5";
-const char* password = "awiw6324";
+const char* ssid = "ZyXEL_3YA3";
+const char* password = "qwerty12345";
 void setupWifi();
 void reconnect();
 void callback(char* topic, byte* message, unsigned int length);
 
 #ifdef SENSOR
+
+#define NODE_NAME "remoteSensor"
 
 DHT dht(DHTPIN,DHTTYPE);
 
@@ -39,18 +41,19 @@ unsigned temperature;
 unsigned humidity;
 int a;
 
-
-
 #endif
 
 #ifdef OUTPUT_ESP
+
+#define NODE_NAME "remoteOutput"
+
 #endif
 
 void setup() {
   Serial.begin(115200);
   setupWifi();
   client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
+  
 
 #ifdef SENSOR
   
@@ -61,6 +64,7 @@ void setup() {
 #ifdef OUTPUT_ESP
   pinMode(RELAY_1,OUTPUT);
   pinMode(RELAY_2,OUTPUT);
+  client.setCallback(callback);
 #endif
 
 delay(1000);
@@ -131,7 +135,7 @@ void reconnect(){
     counter+=1;
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("remoteSensor")) {
+    if (client.connect(NODE_NAME)) {
 
       client.subscribe("output/relay1");
       client.subscribe("output/relay2");
@@ -145,12 +149,27 @@ void reconnect(){
       // Wait 5 seconds before retrying
       delay(5000);
     }
-    client.connect("remoteSensor");
+    client.connect(NODE_NAME);
 
+#ifdef OUTPUT_ESP
     client.subscribe("output/relay1");
     client.subscribe("output/relay2");
+#endif
   }
 }
+
+
+
+#ifdef SENSOR
+void readSensor(){
+  humidity = dht.readHumidity();
+  temperature = dht.readTemperature();
+  delay(500);
+  Serial.println(String(temperature));
+}
+#endif
+
+#ifdef OUTPUT_ESP
 
 void callback(char* topic, byte* message, unsigned int length)
 {
@@ -180,17 +199,4 @@ void callback(char* topic, byte* message, unsigned int length)
   digitalWrite(RELAY_2, msg_hum.toInt());
 }
 
-void controlRelays(){
-
-}
-
-#ifdef SENSOR
-void readSensor(){
-  humidity = dht.readHumidity();
-  temperature = dht.readTemperature();
-  delay(1000);
-}
-#endif
-
-#ifdef OUTPUT_ESP
 #endif
