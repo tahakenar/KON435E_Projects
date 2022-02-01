@@ -4,13 +4,13 @@
 #include <HTTPClient.h>
 #include <DHT.h>
 
-#define CLIENT
-//#define SERVER
+//#define CLIENT
+#define SERVER
+
+//SERVER -> REMOTE SENSOR
+//CLIENT -> REMOTE OUTPUT
 
 #ifdef SERVER
-
-#define RELAY_1 25
-#define RELAY_2 26
 
 #define DHTTYPE DHT11
 #define DHTPIN 4
@@ -33,6 +33,8 @@ int counter = 0;
 
 #ifdef CLIENT
 
+#define RELAY_1 25
+#define RELAY_2 26
 #define TEMP_LIMIT 27
 #define HUMID_LIMIT 45
 
@@ -65,13 +67,6 @@ void setup(){
 
 Serial.begin(9600);
   #ifdef SERVER
-  // Serial port for debugging purposes
-  pinMode(RELAY_1,OUTPUT);
-  pinMode(RELAY_2,OUTPUT);
-
-  digitalWrite(RELAY_1,HIGH);
-  digitalWrite(RELAY_2,HIGH);
-  // Serial port for debugging purposes
   dht.begin();
   
   Serial.println();
@@ -133,6 +128,11 @@ Serial.begin(9600);
 
 #ifdef CLIENT
 
+  pinMode(RELAY_1,OUTPUT);
+  pinMode(RELAY_2,OUTPUT);
+
+  digitalWrite(RELAY_1,HIGH);
+  digitalWrite(RELAY_2,HIGH);
   WiFi.begin(ssid, password);
   Serial.println("Connecting");
   while(WiFi.status() != WL_CONNECTED) { 

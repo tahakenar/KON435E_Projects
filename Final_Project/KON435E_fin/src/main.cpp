@@ -4,19 +4,19 @@
 #include "DHT.h"
 
 
-
-
-#define mqtt_server "192.168.1.37"
+#define mqtt_server "160.75.154.101"
+const char * mqtt_password = "963258741";
+const char * mqtt_username = "iturockwell";
 WiFiClient espClient;
 PubSubClient client(espClient);
 #define mqttTemp "sensor/temp"
 #define mqttHum "sensor/hum"
+#define mqttTime "sensor/time"
 
 #define SENSOR
 //#define OUTPUT_ESP
 
 long lastMsg = 0;
-
 
 
 #define RELAY_1 25
@@ -52,7 +52,7 @@ int a;
 void setup() {
   Serial.begin(115200);
   setupWifi();
-  client.setServer(mqtt_server, 1883);
+  client.setServer(mqtt_server, 1884);
   
 
 #ifdef SENSOR
@@ -135,7 +135,7 @@ void reconnect(){
     counter+=1;
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect(NODE_NAME)) {
+    if (client.connect(NODE_NAME,mqtt_username,mqtt_password)) {
 
       client.subscribe("output/relay1");
       client.subscribe("output/relay2");
@@ -165,7 +165,10 @@ void readSensor(){
   humidity = dht.readHumidity();
   temperature = dht.readTemperature();
   delay(500);
+  Serial.print("Temperature: ");
   Serial.println(String(temperature));
+  Serial.print("Humidity: ");
+  Serial.println(String(humidity));
 }
 #endif
 
